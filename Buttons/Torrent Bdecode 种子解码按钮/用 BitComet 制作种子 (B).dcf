@@ -1,0 +1,16 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<button backcol="none" display="both" label_pos="right" textcol="none">
+	<label>用 BitComet 制作种子 (&amp;B)</label>
+	<tip>选中文件或文件夹，用 BitComet 命令行参数直接生成种子.torrent</tip>
+	<icon1>/Tools\BitComet\BitComet_x64.exe,0</icon1>
+	<function type="normal">
+		<instruction>@nodeselect </instruction>
+		<instruction>//http://wiki.bitcomet.com/bitcomet_command_line</instruction>
+		<instruction>//&quot;/Tools\BitComet\BitComet.exe&quot; -h</instruction>
+		<instruction />
+		<instruction>// -s 静默执行时，一些Bencode的字段值会保持为GUI界面看到的值，如：announce publisher publisher-url 版本v1或v2</instruction>
+		<instruction>// -o 指定输出路径； 如果省略-o 则会使用源文件的路径</instruction>
+		<instruction>// -piece-size 指定块大小:32KB,64KB...64MB</instruction>
+		<instruction>&quot;/Tools\BitComet\BitComet_x64.exe&quot; -m {filepath$} -s --tray</instruction>
+	</function>
+</button>

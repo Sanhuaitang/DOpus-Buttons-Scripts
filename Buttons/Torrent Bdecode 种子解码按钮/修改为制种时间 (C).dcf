@@ -1,0 +1,84 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<button backcol="none" display="both" label_pos="right" textcol="none">
+	<label>修改为制种时间 (&amp;C)</label>
+	<tip>将torrent种子文件的修改时间设置为其内部 [ Creation Date] 字段的值</tip>
+	<icon1>#filecommands</icon1>
+	<function type="script">
+		<instruction>@script JScript</instruction>
+		<instruction>function OnClick(clickData)</instruction>
+		<instruction>{</instruction>
+		<instruction>	DOpus.ClearOutput();</instruction>
+		<instruction>	var cmd = clickData.func.command;</instruction>
+		<instruction>	cmd.deselect = false;</instruction>
+		<instruction>	</instruction>
+		<instruction>	if (clickData.func.sourcetab.selected_files.count == 0) return;</instruction>
+		<instruction>	//var fsu = DOpus.FSUtil;</instruction>
+		<instruction>	var StrTools = DOpus.Create.StringTools;</instruction>
+		<instruction>	</instruction>
+		<instruction>	for (var eSel = new Enumerator(clickData.func.sourcetab.selected_files); !eSel.atEnd(); eSel.moveNext())</instruction>
+		<instruction>	{</instruction>
+		<instruction>		if (eSel.item().ext != &quot;.torrent&quot;)</instruction>
+		<instruction>			continue;</instruction>
+		<instruction>		else</instruction>
+		<instruction>		{</instruction>
+		<instruction>			var file = eSel.item().open();</instruction>
+		<instruction>			if (file.error) {</instruction>
+		<instruction>				DOpus.Output(&quot;file读取失败&quot;);</instruction>
+		<instruction>				continue;</instruction>
+		<instruction>			}</instruction>
+		<instruction>			var infoStart = 0;</instruction>
+		<instruction>			var fullBlob = file.Read()</instruction>
+		<instruction>			file.Close();</instruction>
+		<instruction>			</instruction>
+		<instruction>			var field = &quot;13:creation date&quot;</instruction>
+		<instruction>			var temp = DOpus.Create.Blob</instruction>
+		<instruction>			temp.CopyFrom(field,&quot;utf8&quot;)</instruction>
+		<instruction>			var fieldPos = fullBlob.Find(temp)</instruction>
+		<instruction />
+		<instruction>			if (fieldPos == -1) continue;</instruction>
+		<instruction>			else {</instruction>
+		<instruction>				//DOpus.Output(fieldPos);</instruction>
+		<instruction>				fieldPos.Add(temp.size);</instruction>
+		<instruction>				//DOpus.Output(DOpus.TypeOf(fieldPos)+&quot; | start at: &quot;+fieldPos);</instruction>
+		<instruction>				var result = Decode(fullBlob, fieldPos)</instruction>
+		<instruction>				//DOpus.Output(result)</instruction>
+		<instruction>				var crtDate = DOpus.Create.Date(&quot;1970-01-01 00:00:00&quot;);</instruction>
+		<instruction>				crtDate.Add(result);</instruction>
+		<instruction>				var newMod = crtDate.FromUTC().Format(&quot;D#yyyy-MM-dd T#HH:mm:ss&quot;);</instruction>
+		<instruction>				//DOpus.Output(newMod);</instruction>
+		<instruction>				cmd.Addline(&apos;SetAttr &quot;&apos; + eSel.item() + &apos;&quot; MODIFIED=&quot;&apos; + newMod+&apos;&quot;&apos;);</instruction>
+		<instruction>			}</instruction>
+		<instruction>		}</instruction>
+		<instruction>	}</instruction>
+		<instruction />
+		<instruction>	cmd.Run();</instruction>
+		<instruction>	</instruction>
+		<instruction>	function Decode(blob, pos) {</instruction>
+		<instruction>		var b = DOpus.Create.Blob</instruction>
+		<instruction>		b.CopyFrom(blob, 0, ++pos, 1)</instruction>
+		<instruction>		var c = StrTools.decode(b,&quot;utf-8&quot;)</instruction>
+		<instruction>		//DOpus.Output(c)</instruction>
+		<instruction>		var size = &quot;&quot;;</instruction>
+		<instruction>		while (c!= &quot;e&quot;)</instruction>
+		<instruction>		{</instruction>
+		<instruction>			size += c;</instruction>
+		<instruction>			b.CopyFrom(blob, 0, ++pos, 1)</instruction>
+		<instruction>			c = StrTools.decode(b,&quot;utf-8&quot;);</instruction>
+		<instruction>		}</instruction>
+		<instruction>		//DOpus.Output(&quot;size: &quot;+ size)</instruction>
+		<instruction>		b.Free()</instruction>
+		<instruction>		return size;</instruction>
+		<instruction>	}</instruction>
+		<instruction>}</instruction>
+		<instruction>==SCRIPT RESOURCES</instruction>
+		<instruction>&lt;resources&gt;</instruction>
+		<instruction>	&lt;resource name=&quot;tracker&quot; type=&quot;dialog&quot;&gt;</instruction>
+		<instruction>		&lt;dialog fontsize=&quot;11&quot; height=&quot;78&quot; lang=&quot;english&quot; title=&quot;请输入新的Tracker&quot; width=&quot;300&quot;&gt;</instruction>
+		<instruction>			&lt;control halign=&quot;left&quot; height=&quot;36&quot; multiline=&quot;yes&quot; name=&quot;announce&quot; type=&quot;edit&quot; width=&quot;276&quot; x=&quot;12&quot; y=&quot;18&quot; /&gt;</instruction>
+		<instruction>			&lt;control halign=&quot;left&quot; height=&quot;9&quot; name=&quot;static1&quot; title=&quot;只替换announce节点的值，不修改announce-list节点&quot; type=&quot;static&quot; width=&quot;210&quot; x=&quot;12&quot; y=&quot;6&quot; /&gt;</instruction>
+		<instruction>			&lt;control close=&quot;1&quot; default=&quot;yes&quot; height=&quot;14&quot; name=&quot;ok&quot; title=&quot;确定&quot; type=&quot;button&quot; width=&quot;50&quot; x=&quot;236&quot; y=&quot;58&quot; /&gt;</instruction>
+		<instruction>		&lt;/dialog&gt;</instruction>
+		<instruction>	&lt;/resource&gt;</instruction>
+		<instruction>&lt;/resources&gt;</instruction>
+	</function>
+</button>

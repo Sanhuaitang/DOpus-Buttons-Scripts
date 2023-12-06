@@ -1,0 +1,171 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<button backcol="none" display="both" label_pos="right" textcol="none">
+	<label>修改种子的Tracker (&amp;M)</label>
+	<tip>将 [ announce ] 字段值修改为给定的URL\n不改变 [ announce list ]\n( BT种子的announce字段值就是Tracker URL )</tip>
+	<icon1>#filecommands</icon1>
+	<function type="script">
+		<instruction>@script JScript</instruction>
+		<instruction>//参考资料</instruction>
+		<instruction>//https://resource.dopus.com/t/torrent-file-info/39836</instruction>
+		<instruction>//https://juejin.cn/post/6897093645120962574</instruction>
+		<instruction>//https://github.com/Rekent/common-utils/blob/master/src/main/java/com/rekent/tools/utils/torrent/TorrentFileResovler.java</instruction>
+		<instruction>//https://pypi.org/project/BitTorrent-bencode/#files    Python的bencode函数</instruction>
+		<instruction>//考虑到数据边界问题，例如java等语言，数值推荐使用Long类型，以防数据越界</instruction>
+		<instruction>function OnClick(clickData)</instruction>
+		<instruction>{</instruction>
+		<instruction>	DOpus.ClearOutput();</instruction>
+		<instruction>	var cmd = clickData.func.command;</instruction>
+		<instruction>	cmd.deselect = false;</instruction>
+		<instruction>	</instruction>
+		<instruction>	//设置新的Tracker</instruction>
+		<instruction>	var newAnnounce = &quot;&quot;;</instruction>
+		<instruction>	var dlg=clickData.func.Dlg;</instruction>
+		<instruction>	dlg.window = clickData.func.sourcetab;</instruction>
+		<instruction>	dlg.template = &quot;tracker&quot;</instruction>
+		<instruction>	dlg.detach = true;</instruction>
+		<instruction>	dlg.create;</instruction>
+		<instruction>	dlg.control(&quot;announce&quot;).value = DOpus.GetClip(&quot;text&quot;);</instruction>
+		<instruction>	//dlg.want_resize = true;</instruction>
+		<instruction>	dlg.show;</instruction>
+		<instruction>	</instruction>
+		<instruction>	while(true){</instruction>
+		<instruction>		var msg = dlg.GetMsg();</instruction>
+		<instruction>		if(!msg.result) break;</instruction>
+		<instruction>		//DOpus.output(msg.event);</instruction>
+		<instruction>	}</instruction>
+		<instruction>	if(dlg.result == 1) {</instruction>
+		<instruction>		newAnnounce = dlg.control(&quot;announce&quot;).value;</instruction>
+		<instruction>		newAnnounce = newAnnounce.replace(/^\s*(.*?)\s*$/, &quot;$1&quot;);</instruction>
+		<instruction>	}</instruction>
+		<instruction>	else</instruction>
+		<instruction>		return;</instruction>
+		<instruction>	</instruction>
+		<instruction>	//var newAnnounce = &quot;http:\/\/tracker1.itzmx.com:8080\/announce&quot;;</instruction>
+		<instruction>	if (newAnnounce == &quot;&quot; || !newAnnounce.match(/^http/i)) {</instruction>
+		<instruction>		DOpus.output(&quot;输入的url无效，请仔细检查网址&quot;);</instruction>
+		<instruction>		return;</instruction>
+		<instruction>	}</instruction>
+		<instruction>	DOpus.Output(&quot;New nnounce： &quot; + newAnnounce.length+&quot;: &quot;+newAnnounce + &quot;\n&quot;);</instruction>
+		<instruction />
+		<instruction>	clickData.func.sourcetab.Update();</instruction>
+		<instruction>	if (clickData.func.sourcetab.selected_files.count == 0) return;</instruction>
+		<instruction>	var fsu = DOpus.FSUtil;</instruction>
+		<instruction>	var StrTools = DOpus.Create.StringTools;</instruction>
+		<instruction>		</instruction>
+		<instruction>	for (var eSel = new Enumerator(clickData.func.sourcetab.selected_files); !eSel.atEnd(); eSel.moveNext())</instruction>
+		<instruction>	{</instruction>
+		<instruction>		if (eSel.item().ext != &quot;.torrent&quot;)</instruction>
+		<instruction>			continue;</instruction>
+		<instruction>		else</instruction>
+		<instruction>		{</instruction>
+		<instruction>			//DOpus.Output(&quot;torrent: &quot; + eSel.item().RealPath);</instruction>
+		<instruction>			//var file = fsu.OpenFile(eSel.item().RealPath);</instruction>
+		<instruction>			var file = eSel.item().open();</instruction>
+		<instruction>			if (file.error) {</instruction>
+		<instruction>				DOpus.Output(&quot;file读取失败&quot;);</instruction>
+		<instruction>				continue;</instruction>
+		<instruction>			}</instruction>
+		<instruction>			var fullBlob = file.Read()</instruction>
+		<instruction>			file.Close();</instruction>
+		<instruction />
+		<instruction>			var infoStart = 0, infoEnd = 0</instruction>
+		<instruction>			var field = &quot;8:announce&quot;</instruction>
+		<instruction>			var temp = DOpus.Create.Blob</instruction>
+		<instruction>			temp.CopyFrom(field,&quot;utf8&quot;)</instruction>
+		<instruction>			infoStart = fullBlob.Find(temp)</instruction>
+		<instruction />
+		<instruction>			if (infoStart == -1) continue;</instruction>
+		<instruction>			else {</instruction>
+		<instruction>				//infoStart = Number(pos)+Number(temp.size)</instruction>
+		<instruction>				infoStart.Add(temp.size)</instruction>
+		<instruction>				//DOpus.Output(&quot;announce start: &quot; + infoStart + &quot; | &quot; + DOpus.TypeOf(infoStart));</instruction>
+		<instruction>				var OldTracker = decodeString(fullBlob, infoStart);</instruction>
+		<instruction>				//DOpus.Output(&quot;announce end: &quot; + infoEnd);</instruction>
+		<instruction>				DOpus.Output(&quot;Old Tracker(announce): &quot; + OldTracker);</instruction>
+		<instruction>			}</instruction>
+		<instruction />
+		<instruction>			/* //通过后边的字符串来检查infoEnd位置是否正确</instruction>
+		<instruction>			var d = DOpus.Create.Blob</instruction>
+		<instruction>			d.CopyFrom(fullBlob, 0, infoEnd, 40)</instruction>
+		<instruction>			var c = StrTools.decode(d,&quot;utf-8&quot;)</instruction>
+		<instruction>			DOpus.Output(c)</instruction>
+		<instruction>			*/</instruction>
+		<instruction>			</instruction>
+		<instruction>			var toPath = eSel.item().path;</instruction>
+		<instruction>			toPath = toPath.components&gt;1?toPath+&quot;\\&quot;:toPath;</instruction>
+		<instruction>			toPath = toPath + &quot;-&quot; + eSel.item().name;</instruction>
+		<instruction>			DOpus.Output(&quot;Write file: &quot;+toPath+&quot;\n&quot;);</instruction>
+		<instruction>			file2 = fsu.OpenFile(toPath,&quot;wa&quot;);</instruction>
+		<instruction>			if (file2.error) {</instruction>
+		<instruction>				DOpus.Output(&quot;file2读取失败&quot;);</instruction>
+		<instruction>				continue;</instruction>
+		<instruction>			}</instruction>
+		<instruction />
+		<instruction>			var anceBlob = DOpus.Create.Blob();</instruction>
+		<instruction>			anceBlob.CopyFrom(fullBlob,0,0,infoStart);//拼接开头部分</instruction>
+		<instruction>				var temp1 = DOpus.Create.Blob</instruction>
+		<instruction>				var temp2 = DOpus.Create.Blob</instruction>
+		<instruction>				temp1.CopyFrom(newAnnounce,&quot;utf8&quot;)</instruction>
+		<instruction>				temp2.CopyFrom(temp1.size+&quot;:&quot;,&quot;utf8&quot;)</instruction>
+		<instruction>				anceBlob.CopyFrom(temp2,anceBlob.size)</instruction>
+		<instruction>				anceBlob.CopyFrom(temp1,anceBlob.size)</instruction>
+		<instruction>				temp1.Free()</instruction>
+		<instruction>				temp2.Free()</instruction>
+		<instruction>			//DOpus.Output(StrTools.decode(anceBlob,&quot;utf-8&quot;) + &quot;\n&quot; );</instruction>
+		<instruction>			anceBlob.CopyFrom(fullBlob,anceBlob.size,infoEnd);//拼接剩下全的部</instruction>
+		<instruction>			fullBlob.Free()</instruction>
+		<instruction>			</instruction>
+		<instruction>			file2.Write(anceBlob)</instruction>
+		<instruction>			anceBlob.Free()</instruction>
+		<instruction>			file2.close()</instruction>
+		<instruction />
+		<instruction>			function decodeString(blob, pos) {</instruction>
+		<instruction>				var b = DOpus.Create.Blob</instruction>
+		<instruction>				b.CopyFrom(blob, 0, pos, 1)</instruction>
+		<instruction>				var c = StrTools.decode(b,&quot;utf-8&quot;)</instruction>
+		<instruction>				//DOpus.Output(c)</instruction>
+		<instruction>				var size = &quot;&quot;</instruction>
+		<instruction>				while (c!= &quot;:&quot;)</instruction>
+		<instruction>				{</instruction>
+		<instruction>					size += c;</instruction>
+		<instruction>					b.CopyFrom(blob, 0, ++pos, 1)</instruction>
+		<instruction>					c = StrTools.decode(b,&quot;utf-8&quot;);</instruction>
+		<instruction>				}</instruction>
+		<instruction>				//DOpus.Output(&quot;size: &quot;+ size)</instruction>
+		<instruction>				b.CopyFrom(blob, 0, ++pos, size)</instruction>
+		<instruction>				infoEnd = pos+Number(size)</instruction>
+		<instruction>				var result = StrTools.decode(b,&quot;utf-8&quot;);</instruction>
+		<instruction>				b.Free()</instruction>
+		<instruction>				return result;</instruction>
+		<instruction>			}</instruction>
+		<instruction>		}</instruction>
+		<instruction>	}</instruction>
+		<instruction>}</instruction>
+		<instruction>==SCRIPT RESOURCES</instruction>
+		<instruction>&lt;resources&gt;</instruction>
+		<instruction>	&lt;resource name=&quot;tracker&quot; type=&quot;dialog&quot;&gt;</instruction>
+		<instruction>		&lt;dialog fontsize=&quot;10&quot; height=&quot;78&quot; lang=&quot;english&quot; title=&quot;Input a new Tracker URL&quot; width=&quot;300&quot;&gt;</instruction>
+		<instruction>			&lt;languages&gt;</instruction>
+		<instruction>				&lt;language height=&quot;78&quot; lang=&quot;chs&quot; title=&quot;请输入 1 个新的 Tracker URL&quot; width=&quot;300&quot; /&gt;</instruction>
+		<instruction>			&lt;/languages&gt;</instruction>
+		<instruction>			&lt;control halign=&quot;left&quot; height=&quot;36&quot; multiline=&quot;yes&quot; name=&quot;announce&quot; type=&quot;edit&quot; width=&quot;276&quot; x=&quot;12&quot; y=&quot;18&quot; /&gt;</instruction>
+		<instruction>			&lt;control halign=&quot;left&quot; height=&quot;9&quot; name=&quot;static1&quot; title=&quot;Only replace the value of &amp;apos;announce&amp;apos; node, do not modify &amp;apos;announce-list&amp;apos; node.&quot; type=&quot;static&quot; width=&quot;267&quot; x=&quot;12&quot; y=&quot;6&quot;&gt;</instruction>
+		<instruction>				&lt;languages&gt;</instruction>
+		<instruction>					&lt;language height=&quot;9&quot; lang=&quot;chs&quot; title=&quot;只替换 [announce] 节点的值，不修改 [announce-list] 节点&quot; width=&quot;236&quot; x=&quot;12&quot; y=&quot;6&quot; /&gt;</instruction>
+		<instruction>				&lt;/languages&gt;</instruction>
+		<instruction>			&lt;/control&gt;</instruction>
+		<instruction>			&lt;control close=&quot;1&quot; default=&quot;yes&quot; height=&quot;14&quot; name=&quot;ok&quot; title=&quot;&amp;amp;OK&quot; type=&quot;button&quot; width=&quot;50&quot; x=&quot;236&quot; y=&quot;58&quot;&gt;</instruction>
+		<instruction>				&lt;languages&gt;</instruction>
+		<instruction>					&lt;language height=&quot;14&quot; lang=&quot;chs&quot; title=&quot;确定&quot; width=&quot;50&quot; x=&quot;236&quot; y=&quot;58&quot; /&gt;</instruction>
+		<instruction>				&lt;/languages&gt;</instruction>
+		<instruction>			&lt;/control&gt;</instruction>
+		<instruction>			&lt;control halign=&quot;center&quot; height=&quot;8&quot; name=&quot;static2&quot; title=&quot;( Gets clipboard text by default )&quot; type=&quot;static&quot; width=&quot;116&quot; x=&quot;84&quot; y=&quot;61&quot;&gt;</instruction>
+		<instruction>				&lt;languages&gt;</instruction>
+		<instruction>					&lt;language height=&quot;8&quot; lang=&quot;chs&quot; title=&quot;（默认获取剪切板中文本）&quot; width=&quot;116&quot; x=&quot;84&quot; y=&quot;61&quot; /&gt;</instruction>
+		<instruction>				&lt;/languages&gt;</instruction>
+		<instruction>			&lt;/control&gt;</instruction>
+		<instruction>		&lt;/dialog&gt;</instruction>
+		<instruction>	&lt;/resource&gt;</instruction>
+		<instruction>&lt;/resources&gt;</instruction>
+	</function>
+</button>

@@ -1,0 +1,205 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<button backcol="none" display="both" label_pos="right" textcol="none">
+	<label>种子转磁力链接(&amp;U)</label>
+	<tip>选中种子，计算其hash值，生成磁力链接后复制到剪贴板\n较大的种子可能需要四五秒\n比特彗星捕捉到40位的sha1值 会自动转换为base32编码</tip>
+	<icon1>#copyfilenames</icon1>
+	<function type="script">
+		<instruction />
+		<instruction>@script JScript</instruction>
+		<instruction>//https://github.com/nutbread/t2m/</instruction>
+		<instruction>//https://nutbread.github.io/t2m/</instruction>
+		<instruction>//https://blog.rhilip.info/archives/1255/  Bittorrent v2对比及实践相关</instruction>
+		<instruction />
+		<instruction>function OnClick(clickData)</instruction>
+		<instruction>{</instruction>
+		<instruction>	DOpus.ClearOutput();</instruction>
+		<instruction>	var cmd = clickData.func.command;</instruction>
+		<instruction>	cmd.deselect = false;</instruction>
+		<instruction>	</instruction>
+		<instruction>	if (clickData.func.sourcetab.selected_files.count == 0) return;</instruction>
+		<instruction>	var fsu = DOpus.FSUtil;</instruction>
+		<instruction>	var StrTools = DOpus.Create.StringTools;</instruction>
+		<instruction>	var SHA1 = new ActiveXObject(&quot;System.Security.Cryptography.SHA1Managed&quot;);</instruction>
+		<instruction>	var SHA256 = new ActiveXObject(&quot;System.Security.Cryptography.SHA256Managed&quot;);</instruction>
+		<instruction />
+		<instruction>	var field = &quot;4:info&quot;;</instruction>
+		<instruction>	var temp = DOpus.Create.Blob;</instruction>
+		<instruction>	temp.CopyFrom(field,&quot;utf8&quot;);</instruction>
+		<instruction>	</instruction>
+		<instruction>	var metav = &quot;12:meta version&quot;;//v2种子的info里必有 且为2</instruction>
+		<instruction>	var vBlob = DOpus.Create.Blob;</instruction>
+		<instruction>	vBlob.CopyFrom(metav,&quot;utf8&quot;)</instruction>
+		<instruction />
+		<instruction>	var preURL = &quot;magnet:?xt=urn:btih:&quot;;</instruction>
+		<instruction>	var finalResult = &quot;&quot;;</instruction>
+		<instruction>	</instruction>
+		<instruction>	for (var eSel = new Enumerator(clickData.func.sourcetab.selected_files); !eSel.atEnd(); eSel.moveNext())</instruction>
+		<instruction>	{</instruction>
+		<instruction>		if (eSel.item().ext != &quot;.torrent&quot;)</instruction>
+		<instruction>			continue;</instruction>
+		<instruction>		else</instruction>
+		<instruction>		{</instruction>
+		<instruction>			var file = eSel.item().open();</instruction>
+		<instruction>			if (file.error) {</instruction>
+		<instruction>				DOpus.Output(&quot;file读取失败&quot;);</instruction>
+		<instruction>				continue;</instruction>
+		<instruction>			}</instruction>
+		<instruction>			var fullBlob = file.Read()</instruction>
+		<instruction>			file.Close();</instruction>
+		<instruction />
+		<instruction>			var infoStart = fullBlob.Find(temp)</instruction>
+		<instruction>			if (infoStart == -1) continue;</instruction>
+		<instruction>			else {</instruction>
+		<instruction>				//获取种子的版本</instruction>
+		<instruction>				var btVersion = 1;</instruction>
+		<instruction>				var metavPos = fullBlob.Find(vBlob, infoStart)</instruction>
+		<instruction>				//DOpus.Output(&quot;meta version pos:&quot;+metavPos)</instruction>
+		<instruction>				if (metavPos != -1) {</instruction>
+		<instruction>					metavPos.Add(vBlob.size);</instruction>
+		<instruction>					//DOpus.Output(DOpus.TypeOf(metavPos)+&quot; &quot;+metavPos)</instruction>
+		<instruction>					btVersion = getNextChar(fullBlob, metavPos-0);//metavPos-0 即将metavPos转换为数字</instruction>
+		<instruction>				}</instruction>
+		<instruction>				DOpus.Output(&quot;Version: &quot;+btVersion)</instruction>
+		<instruction>				</instruction>
+		<instruction>				var IsHybrid = isHybrid(fullBlob, infoStart);//判断是否为混合种子</instruction>
+		<instruction>				//DOpus.Output(IsHybrid?&quot;hybrid: true&quot;:&quot;hybrid: false&quot;);</instruction>
+		<instruction>				</instruction>
+		<instruction>				infoStart.Add(temp.size);</instruction>
+		<instruction>				//DOpus.Output(DOpus.TypeOf(infoStart)+&quot; | info start at: &quot;+infoStart);</instruction>
+		<instruction>				var infoEnd = Decode(fullBlob, infoStart-1)</instruction>
+		<instruction>				var infoSize = infoEnd-infoStart+1;</instruction>
+		<instruction>				DOpus.Output(&quot;size = &quot;+infoEnd +&quot;-&quot; +infoStart +&quot;+1 = &quot; + infoSize)</instruction>
+		<instruction>				var infoBlob = DOpus.Create.Blob;</instruction>
+		<instruction>				infoBlob.CopyFrom(fullBlob,0,infoStart,infoSize);</instruction>
+		<instruction>				fullBlob.Free();</instruction>
+		<instruction />
+		<instruction>				//将info字段的值单独写入文件，发现sha1列计算的结果与在脚本中结果不一致</instruction>
+		<instruction>				//var wfile = fsu.OpenFile(eSel.item().realpath.pathpart+&quot;\\&quot;+eSel.item().name_stem+&quot;000.torrent&quot;,&quot;wof&quot;);</instruction>
+		<instruction>				//wfile.Write(infoBlob);</instruction>
+		<instruction>				//进而发现infoSize超过65535(64k),DO的sha1/md5等方法就无法正确计算了</instruction>
+		<instruction>				//于是改用System.Security.Cryptography.SHA1Managed来计算</instruction>
+		<instruction />
+		<instruction>				//---------计算hash sha-------------</instruction>
+		<instruction>				var hash1=&quot;&quot;, hash2=&quot;&quot;;</instruction>
+		<instruction>				if (btVersion == 2) {</instruction>
+		<instruction>				    if (IsHybrid) {</instruction>
+		<instruction>				        hash1 = getHash(infoBlob,&quot;1&quot;);</instruction>
+		<instruction>				    }</instruction>
+		<instruction>				    hash2 = getHash(infoBlob,&quot;2&quot;);</instruction>
+		<instruction>				}</instruction>
+		<instruction>				else {</instruction>
+		<instruction>				    hash1 = getHash(infoBlob,&quot;1&quot;);</instruction>
+		<instruction>				}</instruction>
+		<instruction>				if(hash1) finalResult += preURL+hash1+&quot;\n&quot;;</instruction>
+		<instruction>				if(hash2) finalResult += preURL+hash2+&quot;\n&quot;;</instruction>
+		<instruction>			}</instruction>
+		<instruction>		}</instruction>
+		<instruction>	}</instruction>
+		<instruction />
+		<instruction>	DOpus.SetClip(finalResult.replace(/\n$/,&quot;&quot;))</instruction>
+		<instruction>	//比特彗星捕捉到40位的sha1值 会自动转换为base32编码</instruction>
+		<instruction>	//虽然使用base32编码和40位16进制表示都是可以的，不过似乎16进制用的更加广泛</instruction>
+		<instruction>	//有些软件/网站可能只对十六进制进行了适配</instruction>
+		<instruction>	</instruction>
+		<instruction>	function getHash(blob,type) {</instruction>
+		<instruction>		var ShaBytes,ShaBlob</instruction>
+		<instruction>		if(type == 1)</instruction>
+		<instruction>			ShaBytes = SHA1.ComputeHash_2(blob.ToArray);</instruction>
+		<instruction>		else if(type == 2)</instruction>
+		<instruction>			ShaBytes = SHA256.ComputeHash_2(blob.ToArray);</instruction>
+		<instruction>		ShaBlob = DOpus.Create.Blob(ShaBytes);</instruction>
+		<instruction>		var str=&quot;&quot;;</instruction>
+		<instruction>		for(var i=0;i&lt;ShaBlob.size;i++) {</instruction>
+		<instruction>			if(ShaBlob(i)&lt;16) str +=&quot;0&quot;;</instruction>
+		<instruction>			str += ShaBlob(i).toString(16);</instruction>
+		<instruction>		}</instruction>
+		<instruction>		return str;</instruction>
+		<instruction>	}</instruction>
+		<instruction>	</instruction>
+		<instruction>	function getVersion(Blob, pos){</instruction>
+		<instruction>		Char = getNextChar(Blob, pos);</instruction>
+		<instruction>		pos++;</instruction>
+		<instruction>		//DOpus.Output(Char +&quot;  at &quot; +pos);</instruction>
+		<instruction>		var result = &quot;&quot;</instruction>
+		<instruction>		while (Char != &quot;e&quot;)</instruction>
+		<instruction>		{</instruction>
+		<instruction>			result += Char;</instruction>
+		<instruction>			Char = getNextChar(Blob, pos);</instruction>
+		<instruction>			pos++;</instruction>
+		<instruction>		}</instruction>
+		<instruction>		//DOpus.Output(&quot;length end at：&quot; +pos);</instruction>
+		<instruction>		return result;</instruction>
+		<instruction>	}</instruction>
+		<instruction>	</instruction>
+		<instruction>	function isHybrid(Blob, index){</instruction>
+		<instruction>		//var v2info = &quot;9:file tree&quot;;//v2种子的info里必有</instruction>
+		<instruction>		var p1 = &quot;6:pieces&quot;;//v1种子的info里必有</instruction>
+		<instruction>		var p2 = &quot;12:piece layers&quot;;//v2必有</instruction>
+		<instruction>		//同时存在pieces和piece layers，则为混合种子</instruction>
+		<instruction />
+		<instruction>		var p1Blob = DOpus.Create.Blob;</instruction>
+		<instruction>		p1Blob.CopyFrom(p1,&quot;utf8&quot;)</instruction>
+		<instruction>		var p2Blob = DOpus.Create.Blob;</instruction>
+		<instruction>		p2Blob.CopyFrom(p2,&quot;utf8&quot;)</instruction>
+		<instruction />
+		<instruction>		var pos1 = Blob.Find(p1Blob, index)</instruction>
+		<instruction>		var pos2 = Blob.Find(p2Blob)</instruction>
+		<instruction>		if (pos1 != -1 &amp;&amp; pos2 != -1) return true;</instruction>
+		<instruction>		else return false;</instruction>
+		<instruction>	}</instruction>
+		<instruction />
+		<instruction>	//================================================================</instruction>
+		<instruction>	function getNextChar(Blob, pos) {</instruction>
+		<instruction>		var tempAt = DOpus.Create.Blob;</instruction>
+		<instruction>		tempAt.CopyFrom(Blob,0,pos+1,1);</instruction>
+		<instruction>		var c = StrTools.decode(tempAt,&quot;utf-8&quot;);</instruction>
+		<instruction>		return c //无法直接返回多个值, 可以用字典</instruction>
+		<instruction>	}</instruction>
+		<instruction>	</instruction>
+		<instruction>	function Decode(Blob, infoStart){</instruction>
+		<instruction>		var Char = getNextChar(Blob, infoStart);</instruction>
+		<instruction>		infoStart++;</instruction>
+		<instruction>		//DOpus.Output(&quot;start: &quot; + Char + &quot;  &quot; + infoStart);</instruction>
+		<instruction>		switch (Char) {</instruction>
+		<instruction>			case &quot;d&quot;:</instruction>
+		<instruction>			case &quot;l&quot;:</instruction>
+		<instruction>					Char = getNextChar(Blob, infoStart);</instruction>
+		<instruction>					while (Char != &apos;e&apos;){</instruction>
+		<instruction>						infoStart = Decode(Blob, infoStart)</instruction>
+		<instruction>						Char = getNextChar(Blob, infoStart);</instruction>
+		<instruction>					}</instruction>
+		<instruction>					//DOpus.Output(&quot;List end at:&quot; + infoStart);</instruction>
+		<instruction>					return ++infoStart</instruction>
+		<instruction>					break;</instruction>
+		<instruction>			case &quot;i&quot;:</instruction>
+		<instruction>					while (Char != &quot;e&quot;)</instruction>
+		<instruction>					{</instruction>
+		<instruction>						Char = getNextChar(Blob, infoStart);</instruction>
+		<instruction>						++infoStart;</instruction>
+		<instruction>					}</instruction>
+		<instruction>					return infoStart;</instruction>
+		<instruction>					break;</instruction>
+		<instruction>			case &quot;0&quot;:</instruction>
+		<instruction>			case &quot;1&quot;:</instruction>
+		<instruction>			case &quot;2&quot;:</instruction>
+		<instruction>			case &quot;3&quot;:</instruction>
+		<instruction>			case &quot;4&quot;:</instruction>
+		<instruction>			case &quot;5&quot;:</instruction>
+		<instruction>			case &quot;6&quot;:</instruction>
+		<instruction>			case &quot;7&quot;:</instruction>
+		<instruction>			case &quot;8&quot;:</instruction>
+		<instruction>			case &quot;9&quot;:</instruction>
+		<instruction>					var size = &quot;&quot;</instruction>
+		<instruction>					while (Char != &quot;:&quot;) {</instruction>
+		<instruction>						size += Char;</instruction>
+		<instruction>						Char = getNextChar(Blob, infoStart);</instruction>
+		<instruction>						infoStart++;</instruction>
+		<instruction>					}</instruction>
+		<instruction>					//DOpus.Output(&quot;size: &quot;+size + &quot;-pos:&quot; + infoStart + &quot; : &quot; + DOpus.TypeOf(infoStart))</instruction>
+		<instruction>					infoStart += Number(size);</instruction>
+		<instruction>					return infoStart;</instruction>
+		<instruction>		}</instruction>
+		<instruction>	} //function Decode end</instruction>
+		<instruction>}</instruction>
+	</function>
+</button>

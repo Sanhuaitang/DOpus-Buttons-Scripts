@@ -1,0 +1,93 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<button backcol="none" display="both" label_pos="right" textcol="none">
+	<label>以内部名称重命名种子(&amp;R)\tCaps, T</label>
+	<tip>解析 .torrent 通过 name 字段获取内部名称，将种子重命名</tip>
+	<hotkeys>
+		<chord>
+			<key>capslock</key>
+			<key>T</key>
+		</chord>
+	</hotkeys>
+	<icon1>#rename2</icon1>
+	<function type="normal">
+		<instruction>@nodeselect </instruction>
+		<instruction>Rename PATTERN * TO * </instruction>
+		<instruction />
+		<instruction>@script JScript</instruction>
+		<instruction>//var fsu = DOpus.FSUtil;</instruction>
+		<instruction>var StrTools = DOpus.Create.StringTools;</instruction>
+		<instruction>function OnGetNewName(getNewNameData)</instruction>
+		<instruction>{</instruction>
+		<instruction>	if (getNewNameData.item.ext != &quot;.torrent&quot;) {</instruction>
+		<instruction>		DOpus.Output(&quot;不是种子文件&quot;);</instruction>
+		<instruction>		return true;</instruction>
+		<instruction>	}</instruction>
+		<instruction>	else</instruction>
+		<instruction>	{</instruction>
+		<instruction>		//DOpus.Output(&quot;torrent: &quot; + getNewNameData.item.RealPath);</instruction>
+		<instruction>		//var file = fsu.OpenFile(getNewNameData.item.RealPath);</instruction>
+		<instruction>		var file = getNewNameData.item.open();</instruction>
+		<instruction>		if (file.error) {</instruction>
+		<instruction>			DOpus.Output(&quot;file读取失败&quot;);</instruction>
+		<instruction>			return true;</instruction>
+		<instruction>		}</instruction>
+		<instruction>		var infoStart = 0; </instruction>
+		<instruction>		//var infoEnd = 0;</instruction>
+		<instruction>		var fullBlob = file.Read()</instruction>
+		<instruction>		file.Close();</instruction>
+		<instruction>		</instruction>
+		<instruction>		var field = &quot;10:name.utf-8&quot;;</instruction>
+		<instruction>		var field2 = &quot;4:name&quot;;</instruction>
+		<instruction>		var temp = DOpus.Create.Blob;</instruction>
+		<instruction>		var temp2 = DOpus.Create.Blob;</instruction>
+		<instruction>		temp.CopyFrom(field,&quot;utf8&quot;);</instruction>
+		<instruction>		temp2.CopyFrom(field2,&quot;utf8&quot;);</instruction>
+		<instruction>		</instruction>
+		<instruction>		var namePos = fullBlob.Find(temp);</instruction>
+		<instruction>		var namePos2 = &quot;&quot;;</instruction>
+		<instruction>		if (namePos == -1) {</instruction>
+		<instruction>			namePos2 = fullBlob.Find(temp2);</instruction>
+		<instruction>			if(namePos2 == -1) {</instruction>
+		<instruction>				DOpus.Output(&quot;找不到name字段，种子无效&quot;);</instruction>
+		<instruction>				return true;</instruction>
+		<instruction>			}</instruction>
+		<instruction>			else { namePos2.Add(temp2.size); infoStart = namePos2;}</instruction>
+		<instruction>		}</instruction>
+		<instruction>		else { namePos.Add(temp.size); infoStart = namePos;}</instruction>
+		<instruction>			//infoStart = Number(namePos)+Number(temp.size);</instruction>
+		<instruction />
+		<instruction>		temp.Free();</instruction>
+		<instruction>		temp2.Free();</instruction>
+		<instruction>		</instruction>
+		<instruction>		//DOpus.Output(&quot;name start: &quot; + infoStart);</instruction>
+		<instruction>		var name = decodeString(fullBlob, infoStart);</instruction>
+		<instruction>		fullBlob.Free();</instruction>
+		<instruction>		if (name) {</instruction>
+		<instruction>			//DOpus.Output(&quot;name: &quot; + name);</instruction>
+		<instruction>			return name + getNewNameData.item.ext;</instruction>
+		<instruction>		}</instruction>
+		<instruction>		else</instruction>
+		<instruction>			return true;</instruction>
+		<instruction>	}</instruction>
+		<instruction>}</instruction>
+		<instruction>function decodeString(blob, pos) {</instruction>
+		<instruction>	var b = DOpus.Create.Blob</instruction>
+		<instruction>	b.CopyFrom(blob, 0, pos, 1)</instruction>
+		<instruction>	var c = StrTools.decode(b,&quot;utf-8&quot;)</instruction>
+		<instruction>	//DOpus.Output(c)</instruction>
+		<instruction>	var size = &quot;&quot;</instruction>
+		<instruction>	while (c!= &quot;:&quot;)</instruction>
+		<instruction>	{</instruction>
+		<instruction>		size += c;</instruction>
+		<instruction>		b.CopyFrom(blob, 0, ++pos, 1)</instruction>
+		<instruction>		c = StrTools.decode(b,&quot;utf-8&quot;);</instruction>
+		<instruction>	}</instruction>
+		<instruction>	//DOpus.Output(&quot;size: &quot;+ size)</instruction>
+		<instruction>	b.CopyFrom(blob, 0, ++pos, size)</instruction>
+		<instruction>	//infoEnd = pos+Number(size)</instruction>
+		<instruction>	var result = StrTools.decode(b,&quot;utf-8&quot;);</instruction>
+		<instruction>	b.Free()</instruction>
+		<instruction>	return result;</instruction>
+		<instruction>}</instruction>
+	</function>
+</button>

@@ -1,0 +1,119 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<button backcol="none" display="both" hotkey="alt+S" textcol="none">
+	<label>搜索选中项 (Alt+S 全局)</label>
+	<tip>选中文件夹(可多选)，则在文件夹内搜索；\n选中文件(可多选)，则全盘搜索同名文件；\n无选中，则在当前路径下搜索；\nDOpus非活动窗口时搜索剪切板内容</tip>
+	<icon1>#EverythingDopus:EverythingDopus</icon1>
+	<function type="script">
+		<instruction>@script JScript</instruction>
+		<instruction>//RunAny中亦有此搜索功能，但在压缩包文件夹内，无法复制到文件名；而此脚本在DO中进入压缩包内时可复制文件名，将此按钮与AHK脚本 OpenPath2DO&amp;TC 互补使用</instruction>
+		<instruction>function OnClick(clickData)</instruction>
+		<instruction>{</instruction>
+		<instruction>	var cmd = clickData.func.command;</instruction>
+		<instruction>	cmd.deselect = false;</instruction>
+		<instruction>	cmd.SetModifier(&quot;noprogress&quot;);</instruction>
+		<instruction>	var sels = clickData.func.sourcetab.selected;</instruction>
+		<instruction>	var doFsu = DOpus.FSUtil;</instruction>
+		<instruction>	var ShowExt = 1;//默认带扩展名搜索</instruction>
+		<instruction>	if (DOpus.Vars.Exists(&quot;EvShowExt&quot;))</instruction>
+		<instruction>		ShowExt = DOpus.vars.get(&quot;EvShowExt&quot;);//全局变量EvShowExt 由 OpenPath2DO&amp;TC 从外部调用 dopusrt.exe /acmd @set glob:EvShowExt=1或0 来设置</instruction>
+		<instruction>	//DOpus.Output(DOpus.TypeOf(ShowExt)+&quot; &quot;+ShowExt);</instruction>
+		<instruction>	var ShowFolder = 1;//默认EV搜索文件夹内部</instruction>
+		<instruction>	if (DOpus.Vars.Exists(&quot;EvShowFolder&quot;))</instruction>
+		<instruction>		ShowFolder = DOpus.vars.get(&quot;EvShowFolder&quot;);</instruction>
+		<instruction>	//DOpus.Output(DOpus.TypeOf(ShowFolder)+&quot; &quot;+ShowFolder);</instruction>
+		<instruction>	</instruction>
+		<instruction>	if(!doFsu.Exists(doFsu.Resolve(&quot;/Everything.exe&quot;)))</instruction>
+		<instruction>	{</instruction>
+		<instruction>		var evPath=&quot;&quot;;</instruction>
+		<instruction>		var evPath1=&quot;C:\\Program Files\\Everything 1.5a\\Everything64.exe&quot;;</instruction>
+		<instruction>		var evPath2=&quot;C:\\Program Files\\Everything\\Everything.exe&quot;;</instruction>
+		<instruction>		if(doFsu.Exists(evPath1))</instruction>
+		<instruction>			evPath=evPath1;</instruction>
+		<instruction>		else if(doFsu.Exists(evPath2))</instruction>
+		<instruction>			evPath=evPath2;</instruction>
+		<instruction>		if (evPath)</instruction>
+		<instruction>			DOpus.aliases.Add(&quot;Everything.exe&quot;,evPath);</instruction>
+		<instruction>		else</instruction>
+		<instruction>			cmd.RunCommand(&apos;Favorites ALIAS=set NAME=Everything.exe PATH &quot;{dlgopen|选择 Everything.exe|*.exe}&quot;&apos;);</instruction>
+		<instruction>	}</instruction>
+		<instruction>	</instruction>
+		<instruction>	var cmdLine = &apos;{alias|Everything.exe|noterm} -newwindow -no-regex -no-ontop -no-case -no-ww -filter everything -sort date-modified &apos;;</instruction>
+		<instruction>	var searchStr = &quot;&quot;;</instruction>
+		<instruction>	if(!DOpus.listers.lastactive.foreground)</instruction>
+		<instruction>	{</instruction>
+		<instruction>		var wsh = new ActiveXObject(&quot;WScript.Shell&quot;);</instruction>
+		<instruction>		DOpus.Delay(300);</instruction>
+		<instruction>		var old_clip = &quot;&quot;;</instruction>
+		<instruction>		if ( DOpus.GetClipFormat() !=&quot;&quot; ) //DOpus.SetClip不支持图片，只支持文本和图片，故暂不考虑还原剪贴板图片</instruction>
+		<instruction>			old_clip = DOpus.GetClip();</instruction>
+		<instruction>		wsh.SendKeys(&quot;^c&quot;);//在Alt键导致菜单项被激活的情况下，发送Ctrl+C将无法复制选中内容，故最好用Win+S</instruction>
+		<instruction>		DOpus.Delay(500);//如果是Total Commander，Ctrl+C后可能要等1.4秒，Delay(14000)</instruction>
+		<instruction>		</instruction>
+		<instruction>		var new_clip = &quot;&quot;;</instruction>
+		<instruction>		if ( DOpus.GetClipFormat() ==&quot;text&quot; ) {</instruction>
+		<instruction>			new_clip = DOpus.GetClip(&quot;text&quot;);</instruction>
+		<instruction>			if (old_clip) DOpus.SetClip(old_clip);</instruction>
+		<instruction>			var arr = new_clip.split(&quot;\n&quot;);</instruction>
+		<instruction>			for (var i=0;i&lt;arr.length;i++) {</instruction>
+		<instruction>				arr[i] = arr[i].replace(/\s*&quot;*\s*([\s\S]*?)\s*&quot;*\s*$/m, &quot;$1&quot;);//去掉前后空格和引号</instruction>
+		<instruction>				if (arr[i]==&quot;&quot;) {</instruction>
+		<instruction>					arr.splice(i,1);</instruction>
+		<instruction>					i--;</instruction>
+		<instruction>				}</instruction>
+		<instruction>			}</instruction>
+		<instruction>			new_clip = arr.join(&quot;\&quot;\&quot;\&quot;\&quot;|\&quot;\&quot;\&quot;\&quot;&quot;);</instruction>
+		<instruction>			cmdLine += &apos;-s &quot;&quot;&quot;&quot;&apos; + new_clip + &apos;&quot;&quot;&quot;&quot;&apos;;</instruction>
+		<instruction>		}</instruction>
+		<instruction>		else if ( DOpus.GetClipFormat() ==&quot;files&quot; ) {</instruction>
+		<instruction>			new_clip = DOpus.GetClip(&quot;files&quot;);</instruction>
+		<instruction>			if (old_clip) DOpus.SetClip(old_clip);</instruction>
+		<instruction>			cmdLine += &apos;-s &apos;;</instruction>
+		<instruction>			var ff = 0;</instruction>
+		<instruction>			for (var eSel = new Enumerator(new_clip); !eSel.atEnd(); eSel.moveNext())</instruction>
+		<instruction>			{</instruction>
+		<instruction>				if(ff==0)</instruction>
+		<instruction>					ff++;</instruction>
+		<instruction>				else</instruction>
+		<instruction>					cmdLine += &apos;|&apos;;</instruction>
+		<instruction />
+		<instruction>				if(eSel.item().is_dir &amp;&amp; ShowFolder==1) searchStr = eSel.item().realpath+&quot;\\&quot;;</instruction>
+		<instruction>				else searchStr = ShowExt==1?eSel.item().name:eSel.item().name_stem_m;//name_stem_m 不带扩展名；name 带扩展名</instruction>
+		<instruction>				if(searchStr.indexOf(&quot; &quot;)!=-1)</instruction>
+		<instruction>					searchStr = &apos;&quot;&quot;&quot;&quot;&apos;+searchStr+&apos;&quot;&quot;&quot;&quot;&apos;;</instruction>
+		<instruction>				cmdLine += searchStr;</instruction>
+		<instruction>			}</instruction>
+		<instruction>		}</instruction>
+		<instruction>		else cmdLine += &apos;-s &quot;{clip}&quot;&apos;;</instruction>
+		<instruction>	}</instruction>
+		<instruction>	else {</instruction>
+		<instruction>		if(sels.count == 0 )</instruction>
+		<instruction>			cmdLine += &apos;-p &quot;{sourcepath}&quot;&apos;;</instruction>
+		<instruction>		else </instruction>
+		<instruction>		{</instruction>
+		<instruction>			//搜索所有选定项，速度快，字串长度无限制，但filelist:只能搜索完整文件名，去掉扩展名就搜不到了，并且在压缩包内时会先解压到临时目录内浪费时间</instruction>
+		<instruction>			//cmdLine += &apos;-searchfilelist {allfile|filem|utf8|nobom}&apos;;//多个文件同时搜索</instruction>
+		<instruction>				</instruction>
+		<instruction>			//----最后采用下面这种方法，字串长度有限制，如果选中的文件有几百个，则搜索速度明显比上面的慢几秒（filelist:效率更高）----</instruction>
+		<instruction>			cmdLine += &apos;-s &apos;;</instruction>
+		<instruction>			var ff = 0;</instruction>
+		<instruction>			for (var eSel = new Enumerator(sels); !eSel.atEnd(); eSel.moveNext())</instruction>
+		<instruction>			{</instruction>
+		<instruction>				if(ff==0)</instruction>
+		<instruction>					ff++;</instruction>
+		<instruction>				else</instruction>
+		<instruction>					cmdLine += &apos;|&apos;;</instruction>
+		<instruction>				</instruction>
+		<instruction>				</instruction>
+		<instruction>				if(eSel.item().is_dir &amp;&amp; ShowFolder==1) searchStr = eSel.item().realpath+&quot;\\&quot;;</instruction>
+		<instruction>				else searchStr = ShowExt==1?eSel.item().name:eSel.item().name_stem_m;//name_stem_m 不带扩展名；name 带扩展名</instruction>
+		<instruction>				if(searchStr.indexOf(&quot; &quot;)!=-1)</instruction>
+		<instruction>					searchStr = &apos;&quot;&quot;&quot;&quot;&apos;+searchStr+&apos;&quot;&quot;&quot;&quot;&apos;;</instruction>
+		<instruction>				cmdLine += searchStr;</instruction>
+		<instruction>			}</instruction>
+		<instruction>			//DOpus.Output(cmdLine);</instruction>
+		<instruction>		}</instruction>
+		<instruction>	}</instruction>
+		<instruction>	cmd.RunCommand(cmdLine);</instruction>
+		<instruction>}</instruction>
+	</function>
+</button>
